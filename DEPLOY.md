@@ -15,10 +15,34 @@
 开始前请确认：
 
 1. 已安装 Docker Desktop
-2. 本地已有镜像：`openclaw:local`
-3. 宿主机模型服务已启动
-4. 模型服务支持 OpenAI-compatible 接口
-5. 准备好模型 API key
+2. 宿主机模型服务已启动
+3. 模型服务支持 OpenAI-compatible 接口
+4. 准备好模型 API key
+
+### 0. 获取 Docker 镜像
+
+从 GitHub Container Registry 拉取官方镜像：
+
+```bash
+docker pull ghcr.io/openclaw/openclaw:latest
+docker tag ghcr.io/openclaw/openclaw:latest openclaw:local
+```
+
+验证镜像已就绪：
+
+```bash
+docker images openclaw
+```
+
+预期输出：
+
+```txt
+REPOSITORY   TAG       IMAGE ID       CREATED        SIZE
+openclaw     local     ...            ...            ~4.4GB
+```
+
+> 也可以指定版本标签，如 `ghcr.io/openclaw/openclaw:2026.2.26`。
+> 镜像源码：https://github.com/openclaw/openclaw
 
 推荐目录结构：
 

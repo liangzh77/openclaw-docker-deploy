@@ -1,6 +1,9 @@
 # Local runtime config with real secrets
 config/openclaw.json
 
+# Instance data directories (contain secrets and runtime state)
+data/
+
 # Common local environment files
 .env
 .env.*

@@ -14,7 +14,6 @@
 适用于以下场景：
 
 - Windows + Docker Desktop
-- 已有本地 OpenClaw 镜像：`openclaw:local`
 - 宿主机已有 OpenAI-compatible 模型服务
 - 模型服务地址类似：`http://localhost:8317`
 
@@ -33,6 +32,23 @@ openclaw-docker-deploy/
 ```
 
 ## Quick Start
+
+### 0. 获取 Docker 镜像
+
+从 GitHub Container Registry 拉取官方镜像并打上本项目使用的标签：
+
+```bash
+docker pull ghcr.io/openclaw/openclaw:latest
+docker tag ghcr.io/openclaw/openclaw:latest openclaw:local
+```
+
+验证：
+
+```bash
+docker images openclaw
+```
+
+> 也可以指定版本标签，如 `ghcr.io/openclaw/openclaw:2026.2.26`。
 
 ### 1. 准备配置文件
 
