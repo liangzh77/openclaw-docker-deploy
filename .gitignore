@@ -1,0 +1,13 @@
+# Local runtime config with real secrets
+config/openclaw.json
+
+# Common local environment files
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
