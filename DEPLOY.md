@@ -344,6 +344,177 @@ http://127.0.0.1:18789/#token=<YOUR_OPENCLAW_TOKEN>
 
 只有在确认当前 OpenClaw 版本确实必须依赖更宽松认证时，才考虑临时恢复额外危险开关，而且仅限本机调试，不要用于公网。
 
+## 多实例部署
+
+可以同时运行多个 OpenClaw 实例，每个实例使用不同的端口和独立配置。
+
+示例（3 个实例）：
+
+```bash
+docker run -d --name openclaw1 \
+  --restart unless-stopped \
+  --add-host=host.docker.internal:host-gateway \
+  -p 18789:18789 -p 18790:18790 \
+  openclaw:local
+
+docker run -d --name openclaw2 \
+  --restart unless-stopped \
+  --add-host=host.docker.internal:host-gateway \
+  -p 18791:18789 -p 18792:18790 \
+  openclaw:local
+
+docker run -d --name openclaw3 \
+  --restart unless-stopped \
+  --add-host=host.docker.internal:host-gateway \
+  -p 18793:18789 -p 18794:18790 \
+  openclaw:local
+```
+
+每个实例需要单独复制配置：
+
+```bash
+docker exec openclaw1 sh -lc "mkdir -p /home/node/.openclaw"
+docker cp config/openclaw1.json openclaw1:/home/node/.openclaw/openclaw.json
+docker restart openclaw1
+```
+
+注意每个实例的配置中 `allowedOrigins` 要匹配对应端口：
+
+| 实例 | 宿主机端口 | allowedOrigins |
+|---|---|---|
+| openclaw1 | 18789 / 18790 | `http://127.0.0.1:18789` |
+| openclaw2 | 18791 / 18792 | `http://127.0.0.1:18791` |
+| openclaw3 | 18793 / 18794 | `http://127.0.0.1:18793` |
+
+### 设备配对
+
+每个实例首次在浏览器中打开时需要设备配对。使用以下命令查看和批准：
+
+```bash
+# 查看待批准设备
+docker exec openclaw1 sh -lc "node openclaw.mjs devices list"
+
+# 批准设备
+docker exec openclaw1 sh -lc "node openclaw.mjs devices approve <request-id>"
+```
+
+## 快照与回滚
+
+### 设计原则
+
+推荐**不挂载宿主机目录**，让数据保存在容器内部。这样 `docker commit` 会将配置、会话记录、设备配对等所有数据与运行状态一起保存，形成原子快照。
+
+| | 挂载宿主机目录 | 不挂载（推荐） |
+|---|---|---|
+| 查看数据 | 直接浏览文件夹 | `docker cp` / `docker exec` |
+| 快照包含数据 | 不包含 | 包含 |
+| 回滚 | 需要单独备份数据目录 | `docker commit` 一步到位 |
+| 数据一致性 | 容器状态和数据可能不同步 | 天然原子性 |
+
+### 创建快照
+
+```bash
+# 格式：docker commit -m "描述" <容器名> <容器名>:<日期>-<英文描述>
+docker commit -m "添加 opus 模型" openclaw1 openclaw1:2026-03-07-add-opus
+docker commit -m "修复配置" openclaw1 openclaw1:2026-03-08-fix-config
+docker commit -m "升级模型" openclaw1 openclaw1:2026-03-09-upgrade-model
+```
+
+Tag 命名规范：
+
+- Tag 只支持 `[a-zA-Z0-9._-]`，不支持中文和空格
+- 中文描述写在 `-m` 参数中，可通过 `docker inspect` 查看
+- 建议格式：`<日期>-<英文关键词>`
+
+### 查看历史快照
+
+```bash
+docker images "openclaw1"
+```
+
+查看某个快照的描述：
+
+```bash
+docker inspect openclaw1:2026-03-07-add-opus --format '{{.Comment}}'
+```
+
+### 回滚到历史快照
+
+```bash
+# 1. 停掉当前容器
+docker stop openclaw1
+docker rename openclaw1 openclaw1-old
+
+# 2. 从历史快照启动新容器
+docker run -d --name openclaw1 \
+  --restart unless-stopped \
+  --add-host=host.docker.internal:host-gateway \
+  -p 18789:18789 -p 18790:18790 \
+  openclaw1:2026-03-07-add-opus
+
+# 3. 确认没问题后删除旧容器
+docker rm openclaw1-old
+```
+
+### 查看容器内数据（不挂载时）
+
+```bash
+# 查看目录
+docker exec openclaw1 ls /home/node/.openclaw/
+
+# 查看配置
+docker exec openclaw1 cat /home/node/.openclaw/openclaw.json
+
+# 拷贝文件到宿主机
+docker cp openclaw1:/home/node/.openclaw/openclaw.json ./查看.json
+
+# 拷贝整个目录到宿主机
+docker cp openclaw1:/home/node/.openclaw/ ./openclaw1-data/
+```
+
+## Anthropic (Claude) 模型配置
+
+如果使用 Claude 模型，provider 和 api 格式与 OpenAI 不同：
+
+```json
+{
+  "models": {
+    "providers": {
+      "anthropic": {
+        "baseUrl": "https://api.anthropic.com",
+        "apiKey": "<YOUR_ANTHROPIC_API_KEY>",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "claude-opus-4-6",
+            "name": "claude-opus-4-6",
+            "api": "anthropic-messages"
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-opus-4-6"
+      }
+    }
+  }
+}
+```
+
+关键区别：
+
+| | OpenAI | Anthropic (Claude) |
+|---|---|---|
+| provider 名 | `openai` | `anthropic` |
+| api 格式 | `openai-completions` | `anthropic-messages` |
+| baseUrl | 需要 `/v1` 后缀 | 不需要 `/v1` |
+| model 引用 | `openai/模型名` | `anthropic/模型名` |
+
+> 注意：Claude 必须使用 `anthropic-messages` 格式，使用 `openai-completions` 会导致工具调用时 400 错误。
+
 ## 附：关键事实
 
 - OpenClaw 不应映射到宿主机 `8317`
