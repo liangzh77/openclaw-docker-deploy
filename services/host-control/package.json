@@ -1,0 +1,9 @@
+{
+  "name": "host-control",
+  "version": "1.0.0",
+  "description": "HTTP API for controlling Windows host from Docker containers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
