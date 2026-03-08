@@ -111,10 +111,9 @@ function setVolume(level) {
 }
 
 function setMute(mute) {
-  if (volumeState.muted !== mute) {
-    ps(AUDIO_KEY_PS + `[AudioKey]::Press([AudioKey]::VK_VOLUME_MUTE)`);
-    volumeState.muted = mute;
-  }
+  // Always send the key press — no in-memory state check, since we can't reliably track system mute state
+  ps(AUDIO_KEY_PS + `[AudioKey]::Press([AudioKey]::VK_VOLUME_MUTE)`);
+  volumeState.muted = mute;
 }
 
 // --- Clash process detection ---
